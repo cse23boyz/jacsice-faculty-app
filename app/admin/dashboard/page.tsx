@@ -1,5 +1,4 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -224,7 +223,7 @@ export default function AdminDashboard() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton className="text-green-700 hover:bg-green-100">
+                    <SidebarMenuButton  onClick={() => router.push("/admin/newfaculty")} className="text-green-700 hover:bg-green-100">
                       <Users className="h-4 w-4" />
                       <span>Invite New Faculty</span>
                     </SidebarMenuButton>
