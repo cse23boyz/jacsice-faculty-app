@@ -1,41 +1,30 @@
-import { NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import bcrypt from "bcryptjs"
+import { NextRequest, NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import bcrypt from "bcrypt";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { fullName, email, facultyCode, username, password } = body
+    const { name, email, username, password, facultyCode } = await req.json();
+    const client = await clientPromise;
+    const db = client.db();
 
-    const client = await clientPromise
-    const db = client.db("facultyDB")
+    const existing = await db.collection("faculty").findOne({ username });
+    if (existing) return NextResponse.json({ error: "Username already exists" }, { status: 400 });
 
-    // check duplicates
-    const existing = await db.collection("faculties").findOne({
-      $or: [{ email }, { facultyCode }, { username }],
-    })
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "Faculty with same Email / Code / Username already exists" },
-        { status: 400 }
-      )
-    }
-
-    // hash password
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    await db.collection("faculties").insertOne({
-      fullName,
+    const result = await db.collection("faculty").insertOne({
+      name,
       email,
-      facultyCode,
       username,
       password: hashedPassword,
+      facultyCode,
       createdAt: new Date(),
-    })
+    });
 
-    return NextResponse.json({ message: "Faculty added successfully" })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ success: true, id: result.insertedId });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Failed to add faculty" }, { status: 500 });
   }
 }

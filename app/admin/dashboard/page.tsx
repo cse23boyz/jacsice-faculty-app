@@ -223,7 +223,7 @@ export default function AdminDashboard() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton  onClick={() => router.push("/admin/newfaculty")} className="text-green-700 hover:bg-green-100">
+                    <SidebarMenuButton  onClick={() => router.push("/admin/add-faculty")} className="text-green-700 hover:bg-green-100">
                       <Users className="h-4 w-4" />
                       <span>Invite New Faculty</span>
                     </SidebarMenuButton>

@@ -1,46 +1,25 @@
-import { NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
+import { NextRequest, NextResponse } from "next/server";
+import clientPromise from "@/lib/mongodb";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { username, password } = await req.json()
-    const client = await clientPromise
-    const db = client.db()
+    const { username, password } = await req.json();
+    const client = await clientPromise;
+    const db = client.db();
 
-    // Find faculty by username
-    const faculty = await db.collection("faculties").findOne({ username })
-    if (!faculty) {
-      return NextResponse.json({ error: "User not found" }, { status: 401 })
-    }
+    const faculty = await db.collection("faculty").findOne({ username });
+    if (!faculty) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
 
-    // Compare password with hash
-    const isMatch = await bcrypt.compare(password, faculty.password)
-    if (!isMatch) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    }
+    const isValid = await bcrypt.compare(password, faculty.password);
+    if (!isValid) return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
 
-    // Create JWT token
-    const token = jwt.sign(
-      { id: faculty._id, username: faculty.username },
-      process.env.JWT_SECRET!,
-      { expiresIn: "1h" }
-    )
+    const token = jwt.sign({ id: faculty._id }, process.env.JWT_SECRET!, { expiresIn: "7d" });
 
-    return NextResponse.json({
-      message: "Login successful",
-      token,
-      faculty: {
-        id: faculty._id,
-        fullName: faculty.fullName,
-        email: faculty.email,
-        facultyCode: faculty.facultyCode,
-        username: faculty.username,
-      },
-    })
+    return NextResponse.json({ token, faculty: { id: faculty._id, name: faculty.name, email: faculty.email, facultyCode: faculty.facultyCode } });
   } catch (error) {
-    console.error("Login error:", error)
-    return NextResponse.json({ error: "Server error" }, { status: 500 })
+    console.error(error);
+    return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }
