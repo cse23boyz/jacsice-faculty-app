@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -12,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, User, Lock, AlertCircle, Crown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-export default function FirstLoginPage() {
+export default function FacultyLoginPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [formData, setFormData] = useState({
@@ -37,27 +36,34 @@ export default function FirstLoginPage() {
     setError("")
 
     try {
-      // First layer authentication - both username and password must be "jacsicestaffs"
-      if (formData.username === "jacsicestaffs" && formData.password === "jacsicestaffs") {
+      const res = await fetch("/api/faculty-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
         toast({
-          title: "Authentication Successful! 🎉",
-          description: "Redirecting to staff portal...",
+          title: "Login Successful 🎉",
+          description: "Redirecting to faculty dashboard...",
         })
 
         setTimeout(() => {
-          router.push("/staff/dashboard")
+          router.push("../faculty/dashboard")
         }, 1000)
       } else {
-        setError('Invalid credentials. Please use "jacsicestaffs" for both username and password.')
+        setError(data.message || "Invalid credentials")
         toast({
-          title: "Authentication Failed ❌",
-          description: "Please check your credentials and try again.",
+          title: "Login Failed ❌",
+          description: data.message || "Please check your credentials.",
           variant: "destructive",
         })
       }
     } catch (error) {
       console.error("Login error:", error)
-      setError("An error occurred during authentication. Please try again.")
+      setError("An error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -69,9 +75,6 @@ export default function FirstLoginPage() {
 
   const handleAdminLogin = () => {
     router.push("/auth/admin-login")
-  }
-    const handleNewLogin = () => {
-    router.push("/auth/staff-login")
   }
 
   return (
@@ -102,7 +105,7 @@ export default function FirstLoginPage() {
               <div className="space-y-2 border-opacity-20">
                 <Label htmlFor="username">Username 👤</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400 border-opacity-25"  />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400 border-opacity-25" />
                   <Input
                     id="username"
                     name="username"
@@ -124,7 +127,7 @@ export default function FirstLoginPage() {
                     id="password"
                     name="password"
                     type="password"
-                    placeholder="Enter Faculty Code"
+                    placeholder="Enter password"
                     value={formData.password}
                     onChange={handleInputChange}
                     className="pl-10"
@@ -149,17 +152,6 @@ export default function FirstLoginPage() {
               </Button>
             </form>
 
-            {/* Hint for users */}
-            {/* <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-700 text-center">
-                💡 <strong>Hint:</strong>
-                <br />
-                Username: <code className="bg-blue-100 px-1 rounded">jacsicestaffs</code>
-                <br />
-                Password: <code className="bg-blue-100 px-1 rounded">jacsicestaffs</code>
-              </p>
-            </div> */}
-
             {/* Admin Access Button */}
             <div className="pt-4 border-t border-gray-200">
               <Button
@@ -169,15 +161,6 @@ export default function FirstLoginPage() {
               >
                 <Crown className="h-4 w-4 mr-2" />
                 Admin Login 👑
-              </Button>
-               {/* <div className="pt-4 border-t border-gray-200"> */}
-              <Button
-                onClick={handleNewLogin}
-                variant="outline"
-                className="border-ro-200 text-blue-600 hover:bg-blue-50 bg-transparent ml-8"
-              >
-                
-                New User Login 
               </Button>
             </div>
           </CardContent>

@@ -15,7 +15,7 @@ export default function HomePage() {
 
     // Always go to first-layer login page when Get Started is clicked
     setTimeout(() => {
-      router.push("/auth/first-login")
+      router.push("/auth/faculty-login")
       setIsLoading(false)
     }, 500)
   }
