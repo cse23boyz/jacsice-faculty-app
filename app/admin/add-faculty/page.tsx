@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import bcrypt from "bcryptjs"; // lighter for frontend
 
 export default function AddFacultyPage() {
   const router = useRouter();
@@ -29,11 +30,15 @@ export default function AddFacultyPage() {
     setIsLoading(true);
 
     try {
+      // Hash password before sending
+      const hashedPassword = await bcrypt.hash(formData.password, 10);
+
       const res = await fetch("/api/admin/add-faculty", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, password: hashedPassword }),
       });
+
       const data = await res.json();
 
       if (res.ok) {
