@@ -1,82 +1,85 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, User, Lock, AlertCircle, Crown } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+// Correct individual imports
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+import { User, Lock, AlertCircle, ArrowLeft, Crown } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function FacultyLoginPage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [formData, setFormData] = useState({ username: "", password: "" })
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
-    setError("")
-  }
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setError("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     try {
       const res = await fetch("/api/faculty-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
-      })
+      });
 
-      let data: any = {}
+      let data: any = {};
       try {
-        data = await res.json()
+        data = await res.json();
       } catch {
-        throw new Error("Server did not return valid JSON")
+        throw new Error("Server did not return valid JSON");
       }
 
       if (!res.ok) {
-        setError(data.error || "Invalid credentials")
+        setError(data.error || "Invalid credentials");
         toast({
           title: "Login Failed ❌",
           description: data.error || "Please check your credentials",
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
 
       // Save JWT token & faculty profile
-      localStorage.setItem("facultyToken", data.token)
-      localStorage.setItem("facultyProfile", JSON.stringify(data.faculty))
+      localStorage.setItem("facultyToken", data.token);
+      localStorage.setItem("facultyProfile", JSON.stringify(data.faculty));
+
       toast({
         title: "Login Successful 🎉",
         description: "Redirecting to dashboard...",
-      })
+      });
 
-      setTimeout(() => {
-        router.push("/staff/dashboard")
-      }, 1000)
+      setTimeout(() => router.push("/staff/dashboard"), 1000);
     } catch (err: any) {
-      console.error("Login error:", err)
-      setError(err.message || "An unexpected error occurred")
+      console.error("Login error:", err);
+      setError(err.message || "An unexpected error occurred");
       toast({
         title: "Login Error ❌",
         description: err.message || "Please try again later",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleBack = () => router.push("/")
-  const handleAdminLogin = () => router.push("/auth/admin-login")
+  const handleBack = () => router.push("/");
+  const handleAdminLogin = () => router.push("/auth/admin-login");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -103,10 +106,10 @@ export default function FacultyLoginPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2 border-opacity-20">
+              <div className="space-y-2">
                 <Label htmlFor="username">Username 👤</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400 border-opacity-25" />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="username"
                     name="username"
@@ -168,5 +171,5 @@ export default function FacultyLoginPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
