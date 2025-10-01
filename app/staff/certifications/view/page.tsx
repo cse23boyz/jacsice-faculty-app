@@ -31,12 +31,22 @@ export default function ViewCertificationsPage() {
   const [facultyList, setFacultyList] = useState([])
   const [filteredFaculty, setFilteredFaculty] = useState([])
   const [selectedFaculty, setSelectedFaculty] = useState(null)
+  const [currentUserProfile, setCurrentUserProfile] = useState(null)
 
   const { department, setUserRole, setDepartment } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
   useEffect(() => {
+    // Load current user profile for sidebar
+    const currentUserId = localStorage.getItem("currentUserId")
+    if (currentUserId) {
+      const currentProfile = localStorage.getItem(`userProfile_${currentUserId}`)
+      if (currentProfile) {
+        setCurrentUserProfile(JSON.parse(currentProfile))
+      }
+    }
+
     // Load all faculty profiles with their certifications
     const allProfiles = []
     for (let i = 0; i < localStorage.length; i++) {
@@ -133,6 +143,16 @@ export default function ViewCertificationsPage() {
     }
   }
 
+  const getInitials = (name) => {
+    if (!name) return "👨‍🏫"
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full staff-theme">
@@ -140,10 +160,23 @@ export default function ViewCertificationsPage() {
         <Sidebar className="border-r">
           <SidebarHeader className="p-4">
             <div className="flex items-center space-x-3">
-              <div className="bg-blue-100 p-2 rounded-full text-2xl">👨‍🏫</div>
+              <Avatar className="h-12 w-12 border-2 border-blue-200">
+                <AvatarImage 
+                  src={currentUserProfile?.profilePhoto} 
+                  alt={currentUserProfile?.fullName}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-blue-100 text-blue-800 font-semibold">
+                  {getInitials(currentUserProfile?.fullName)}
+                </AvatarFallback>
+              </Avatar>
               <div>
-                <h3 className="font-semibold">Faculty Certifications</h3>
-                <p className="text-sm text-muted-foreground">{department} Department</p>
+                <h3 className="font-semibold">
+                  {currentUserProfile?.fullName ? `${currentUserProfile.fullName.split(" ")[0]}` : "Faculty"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {currentUserProfile?.designation || department + " Department"}
+                </p>
               </div>
             </div>
           </SidebarHeader>
@@ -230,9 +263,15 @@ export default function ViewCertificationsPage() {
                   <Card key={index} className="hover:shadow-lg transition-shadow animate-fade-in">
                     <CardHeader className="pb-3">
                       <div className="flex items-center space-x-3">
-                        <Avatar>
-                          <AvatarImage src="/placeholder.svg" />
-                          <AvatarFallback className="bg-blue-100 text-blue-800">👨‍🏫</AvatarFallback>
+                        <Avatar className="h-12 w-12 border-2 border-blue-200">
+                          <AvatarImage 
+                            src={faculty.profilePhoto} 
+                            alt={faculty.fullName}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-blue-100 text-blue-800 font-semibold">
+                            {getInitials(faculty.fullName)}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <CardTitle className="text-lg">{faculty.fullName}</CardTitle>
@@ -307,9 +346,15 @@ export default function ViewCertificationsPage() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center space-x-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback className="bg-blue-100 text-blue-800">👨‍🏫</AvatarFallback>
+                    <Avatar className="h-12 w-12 border-2 border-blue-200">
+                      <AvatarImage 
+                        src={selectedFaculty.profilePhoto} 
+                        alt={selectedFaculty.fullName}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-blue-100 text-blue-800 font-semibold">
+                        {getInitials(selectedFaculty.fullName)}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
                       <h2 className="text-2xl font-bold">{selectedFaculty.fullName}</h2>

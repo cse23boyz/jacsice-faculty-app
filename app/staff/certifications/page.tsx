@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Sidebar,
   SidebarContent,
@@ -204,6 +204,16 @@ export default function CertificationsPage() {
     }
   }
 
+  const getInitials = (name: string) => {
+    if (!name) return "👨‍🏫"
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   // Sort certifications: pinned first, then by date
   const sortedCertifications = [...certifications].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1
@@ -218,8 +228,15 @@ export default function CertificationsPage() {
         <Sidebar className="border-r">
           <SidebarHeader className="p-4">
             <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarFallback className="bg-blue-100 text-blue-800">👨‍🏫</AvatarFallback>
+              <Avatar className="h-12 w-12 border-2 border-blue-200">
+                <AvatarImage 
+                  src={userProfile?.profilePhoto} 
+                  alt={userProfile?.fullName}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-blue-100 text-blue-800 font-semibold">
+                  {getInitials(userProfile?.fullName)}
+                </AvatarFallback>
               </Avatar>
               <div>
                 <h3 className="font-semibold">

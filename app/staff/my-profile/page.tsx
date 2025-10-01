@@ -117,6 +117,16 @@ export default function MyProfilePage() {
     return Object.values(certifications).reduce((total, items) => total + items.length, 0)
   }
 
+  const getInitials = (name) => {
+    if (!name) return "👨‍🏫"
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -144,12 +154,18 @@ export default function MyProfilePage() {
         <Sidebar className="border-r">
           <SidebarHeader className="p-4">
             <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                <AvatarFallback className="bg-blue-100 text-blue-800">👨‍🏫</AvatarFallback>
+              <Avatar className="h-12 w-12 border-2 border-blue-200">
+                <AvatarImage 
+                  src={profileData.profilePhoto} 
+                  alt={profileData.fullName}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-blue-100 text-blue-800 font-semibold">
+                  {getInitials(profileData.fullName)}
+                </AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-semibold">My Profile</h3>
+                <h3 className="font-semibold">{profileData.fullName || "My Profile"}</h3>
                 <p className="text-sm text-muted-foreground">{profileData.designation}</p>
               </div>
             </div>
@@ -227,10 +243,16 @@ export default function MyProfilePage() {
               {/* Profile Header */}
               <Card>
                 <CardHeader>
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="h-20 w-20">
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback className="text-lg bg-blue-100 text-blue-800">👨‍🏫</AvatarFallback>
+                  <div className="flex items-center space-x-6">
+                    <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                      <AvatarImage 
+                        src={profileData.profilePhoto} 
+                        alt={profileData.fullName}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="text-xl bg-blue-100 text-blue-800 font-semibold">
+                        {getInitials(profileData.fullName)}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <CardTitle className="text-2xl">{profileData.fullName}</CardTitle>
@@ -273,6 +295,11 @@ export default function MyProfilePage() {
                     {profileData.qualification && (
                       <div>
                         <strong>Qualification:</strong> {profileData.qualification}
+                      </div>
+                    )}
+                    {profileData.dateOfJoining && (
+                      <div>
+                        <strong>Date of Joining:</strong> {new Date(profileData.dateOfJoining).toLocaleDateString()}
                       </div>
                     )}
                   </div>

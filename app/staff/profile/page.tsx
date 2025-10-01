@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ArrowLeft, User, Mail, Phone, Calendar, BookOpen, Save, MapPin, CheckCircle } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ArrowLeft, User, Mail, Phone, Calendar, BookOpen, Save, MapPin, CheckCircle, Camera, Upload } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface UserProfile {
@@ -28,6 +28,7 @@ interface UserProfile {
   qualification: string
   address: string
   bio: string
+  profilePhoto: string
   isSaved: boolean
   isNewUser: boolean
 }
@@ -38,6 +39,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isNewUser, setIsNewUser] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   const [profile, setProfile] = useState<UserProfile>({
     userId: "",
@@ -53,6 +55,7 @@ export default function ProfilePage() {
     qualification: "",
     address: "",
     bio: "",
+    profilePhoto: "",
     isSaved: false,
     isNewUser: false,
   })
@@ -84,6 +87,7 @@ export default function ProfilePage() {
         qualification: parsedProfile.qualification || "",
         address: parsedProfile.address || "",
         bio: parsedProfile.bio || "",
+        profilePhoto: parsedProfile.profilePhoto || "",
         isSaved: parsedProfile.isSaved || false,
         isNewUser: parsedProfile.isNewUser || false,
       })
@@ -113,6 +117,70 @@ export default function ProfilePage() {
       ...prev,
       [field]: value,
     }))
+  }
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an image file (JPEG, PNG, etc.)",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload an image smaller than 5MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsUploading(true)
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const imageDataUrl = e.target?.result as string
+      setProfile(prev => ({
+        ...prev,
+        profilePhoto: imageDataUrl
+      }))
+      setIsUploading(false)
+      
+      toast({
+        title: "Photo Uploaded! 📸",
+        description: "Profile photo updated successfully",
+      })
+    }
+
+    reader.onerror = () => {
+      setIsUploading(false)
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      })
+    }
+
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemovePhoto = () => {
+    setProfile(prev => ({
+      ...prev,
+      profilePhoto: ""
+    }))
+    toast({
+      title: "Photo Removed",
+      description: "Profile photo has been removed",
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -201,7 +269,7 @@ export default function ProfilePage() {
 
   const completionPercentage = () => {
     const requiredFields = [profile.fullName, profile.email, profile.department, profile.designation];
-    const optionalFields = [profile.phone, profile.specialization, profile.experience, profile.qualification, profile.bio];
+    const optionalFields = [profile.phone, profile.specialization, profile.experience, profile.qualification, profile.bio, profile.profilePhoto];
     
     const completedRequired = requiredFields.filter(field => field).length;
     const completedOptional = optionalFields.filter(field => field).length;
@@ -218,12 +286,64 @@ export default function ProfilePage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
 
+            {/* Photo Upload Section */}
             <div className="flex justify-center mb-4">
-              <Avatar className="h-24 w-24">
-                <AvatarFallback className="bg-blue-100 text-blue-800 text-2xl">
-                  {profile.fullName ? getInitials(profile.fullName) : "👨‍🏫"}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
+                  <AvatarImage 
+                    src={profile.profilePhoto} 
+                    alt={profile.fullName || "Profile Photo"}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-blue-100 text-blue-800 text-2xl">
+                    {profile.fullName ? getInitials(profile.fullName) : "👨‍🏫"}
+                  </AvatarFallback>
+                </Avatar>
+                
+                {/* Upload Button */}
+                <div className="absolute -bottom-2 -right-2">
+                  <input
+                    type="file"
+                    id="profilePhoto"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Label
+                    htmlFor="profilePhoto"
+                    className="flex items-center justify-center w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full cursor-pointer shadow-lg transition-all duration-200 hover:scale-110"
+                  >
+                    {isUploading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Camera className="h-4 w-4" />
+                    )}
+                  </Label>
+                </div>
+
+                {/* Remove Photo Button */}
+                {profile.profilePhoto && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute -bottom-2 -left-2 w-10 h-10 rounded-full shadow-lg"
+                    onClick={handleRemovePhoto}
+                  >
+                    ×
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Upload Hint */}
+            <div className="text-center mb-2">
+              <p className="text-sm text-gray-600">
+                Click the camera icon to upload a profile photo
+              </p>
+              <p className="text-xs text-gray-500">
+                Supports JPG, PNG • Max 5MB
+              </p>
             </div>
 
             <CardTitle className="text-3xl font-bold text-gray-800">
@@ -452,4 +572,4 @@ export default function ProfilePage() {
       </div>
     </div>
   )
-} 
+}

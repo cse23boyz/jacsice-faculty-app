@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   User,
@@ -35,6 +35,7 @@ interface UserProfile {
   experience: string;
   qualification: string;
   dateOfJoining: string;
+  profilePhoto: string;
   isSaved: boolean;
 }
 
@@ -295,8 +296,13 @@ export default function StaffDashboard() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <Avatar className="h-12 w-12">
-              <AvatarFallback className="bg-blue-100 text-blue-800 text-lg">
+            <Avatar className="h-14 w-14 border-2 border-blue-200 shadow-md">
+              <AvatarImage 
+                src={profile.profilePhoto} 
+                alt={profile.fullName}
+                className="object-cover"
+              />
+              <AvatarFallback className="bg-blue-100 text-blue-800 text-lg font-semibold">
                 {getInitials(profile.fullName)}
               </AvatarFallback>
             </Avatar>
@@ -323,71 +329,73 @@ export default function StaffDashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Quick Actions Sidebar */}
         <div className="lg:col-span-1">
-          <Card className="sticky top-4">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="mr-2 h-5 w-5" /> Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => handleNavigation("/staff/my-profile")}
-              >
-                <User className="mr-2 h-4 w-4" /> My Profile
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => handleNavigation("/staff/profile")}
-              >
-                <Settings className="mr-2 h-4 w-4" /> Update Profile
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => handleNavigation("/staff/certifications")}
-              >
-                <Award className="mr-2 h-4 w-4" /> Manage Certifications
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start relative" 
-                onClick={handleCircularsClick}
-              >
-                <Bell className="mr-2 h-4 w-4" /> Admin Communications
-                {unreadCirculars > 0 && (
-                  <Badge variant="destructive" className="ml-auto">
-                    {unreadCirculars}
-                  </Badge>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="sticky top-24 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <User className="mr-2 h-5 w-5" /> Quick Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start" 
+                  onClick={() => handleNavigation("/staff/my-profile")}
+                >
+                  <User className="mr-2 h-4 w-4" /> My Profile
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start" 
+                  onClick={() => handleNavigation("/staff/profile")}
+                >
+                  <Settings className="mr-2 h-4 w-4" /> Update Profile
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start" 
+                  onClick={() => handleNavigation("/staff/certifications")}
+                >
+                  <Award className="mr-2 h-4 w-4" /> Manage Certifications
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start relative" 
+                  onClick={handleCircularsClick}
+                >
+                  <Bell className="mr-2 h-4 w-4" /> Admin Communications
+                  {unreadCirculars > 0 && (
+                    <Badge variant="destructive" className="ml-auto">
+                      {unreadCirculars}
+                    </Badge>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
 
-          {/* Quick Stats */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart3 className="mr-2 h-5 w-5" /> Quick Stats
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Upcoming Events</span>
-                <Badge variant="secondary">{stats.upcomingEvents}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Pending Tasks</span>
-                <Badge variant="destructive">{stats.pendingTasks}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Pinned Certs</span>
-                <Badge variant="outline">{stats.pinned}</Badge>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Quick Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="mr-2 h-5 w-5" /> Quick Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Upcoming Events</span>
+                  <Badge variant="secondary">{stats.upcomingEvents}</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Pending Tasks</span>
+                  <Badge variant="destructive">{stats.pendingTasks}</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Pinned Certs</span>
+                  <Badge variant="outline">{stats.pinned}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Dashboard Content */}
@@ -507,6 +515,12 @@ export default function StaffDashboard() {
                     <span className="text-sm font-medium">Professional Details</span>
                     <Badge variant={profile.designation && profile.department ? "default" : "destructive"}>
                       {profile.designation && profile.department ? "Complete" : "Incomplete"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Profile Photo</span>
+                    <Badge variant={profile.profilePhoto ? "default" : "secondary"}>
+                      {profile.profilePhoto ? "Uploaded" : "Not Uploaded"}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
