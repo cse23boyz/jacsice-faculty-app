@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ArrowLeft, User, Mail, Phone, Calendar, BookOpen, Save, MapPin } from "lucide-react"
+import { ArrowLeft, User, Mail, Phone, Calendar, BookOpen, Save, MapPin, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface UserProfile {
@@ -37,6 +37,7 @@ export default function ProfilePage() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isNewUser, setIsNewUser] = useState(false)
 
   const [profile, setProfile] = useState<UserProfile>({
     userId: "",
@@ -59,7 +60,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const userId = localStorage.getItem("currentUserId")
     if (!userId) {
-      router.push("/auth/first-login")
+      router.push("/auth/faculty-login")
       return
     }
 
@@ -86,9 +87,24 @@ export default function ProfilePage() {
         isSaved: parsedProfile.isSaved || false,
         isNewUser: parsedProfile.isNewUser || false,
       })
+      setIsNewUser(!parsedProfile.isSaved)
     } else {
-      // Set the user ID for new profiles
-      setProfile((prev) => ({ ...prev, userId: userId }))
+      // New user - get basic info from faculty profile
+      const facultyProfile = localStorage.getItem("facultyProfile")
+      if (facultyProfile) {
+        const facultyData = JSON.parse(facultyProfile)
+        setProfile(prev => ({
+          ...prev,
+          userId: userId,
+          fullName: facultyData.fullName || "",
+          email: facultyData.email || "",
+          username: facultyData.username || "",
+          isNewUser: true,
+        }))
+      } else {
+        setProfile(prev => ({ ...prev, userId: userId, isNewUser: true }))
+      }
+      setIsNewUser(true)
     }
   }, [router])
 
@@ -110,7 +126,7 @@ export default function ProfilePage() {
           description: "User session not found. Please login again.",
           variant: "destructive",
         })
-        router.push("/auth/first-login")
+        router.push("/auth/faculty-login")
         return
       }
 
@@ -129,14 +145,17 @@ export default function ProfilePage() {
       const updatedProfile = {
         ...profile,
         isSaved: true,
+        isNewUser: false,
         updatedAt: new Date().toISOString(),
       }
 
       localStorage.setItem(`userProfile_${currentUserId}`, JSON.stringify(updatedProfile))
 
       toast({
-        title: "Profile Updated! 🎉",
-        description: "Your profile has been saved successfully.",
+        title: "Profile Saved Successfully! 🎉",
+        description: isNewUser 
+          ? "Your profile has been completed. Welcome!" 
+          : "Your profile has been updated successfully.",
       })
 
       // Redirect to dashboard after successful save
@@ -156,8 +175,21 @@ export default function ProfilePage() {
   }
 
   const handleBack = () => {
-    router.push("/department-selection")
+    if (isNewUser) {
+      router.push("/department-selection")
+    } else {
+      router.push("/staff/dashboard")
+    }
   }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   if (!currentUserId) {
     return (
@@ -166,6 +198,16 @@ export default function ProfilePage() {
       </div>
     )
   }
+
+  const completionPercentage = () => {
+    const requiredFields = [profile.fullName, profile.email, profile.department, profile.designation];
+    const optionalFields = [profile.phone, profile.specialization, profile.experience, profile.qualification, profile.bio];
+    
+    const completedRequired = requiredFields.filter(field => field).length;
+    const completedOptional = optionalFields.filter(field => field).length;
+    
+    return Math.round((completedRequired / requiredFields.length) * 70 + (completedOptional / optionalFields.length) * 30);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -178,7 +220,9 @@ export default function ProfilePage() {
 
             <div className="flex justify-center mb-4">
               <Avatar className="h-24 w-24">
-                <AvatarFallback className="bg-blue-100 text-blue-800 text-2xl">👨‍🏫</AvatarFallback>
+                <AvatarFallback className="bg-blue-100 text-blue-800 text-2xl">
+                  {profile.fullName ? getInitials(profile.fullName) : "👨‍🏫"}
+                </AvatarFallback>
               </Avatar>
             </div>
 
@@ -190,6 +234,22 @@ export default function ProfilePage() {
                 ? "Update your professional information"
                 : "Please fill in your details to complete your faculty profile"}
             </CardDescription>
+
+            {/* Progress Bar */}
+            {!profile.isSaved && (
+              <div className="mt-4">
+                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                  <span>Profile Completion</span>
+                  <span>{completionPercentage()}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${completionPercentage()}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </CardHeader>
 
           <CardContent>
@@ -197,7 +257,10 @@ export default function ProfilePage() {
               {/* Basic Information */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name *</Label>
+                  <Label htmlFor="fullName">
+                    Full Name *
+                    {profile.fullName && <CheckCircle className="h-4 w-4 text-green-500 inline ml-1" />}
+                  </Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
@@ -212,7 +275,10 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address *</Label>
+                  <Label htmlFor="email">
+                    Email Address *
+                    {profile.email && <CheckCircle className="h-4 w-4 text-green-500 inline ml-1" />}
+                  </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
@@ -242,12 +308,31 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department *</Label>
-                  <Input id="department" value={profile.department || ""} disabled className="bg-gray-100" />
+                  <Label htmlFor="department">
+                    Department *
+                    {profile.department && <CheckCircle className="h-4 w-4 text-green-500 inline ml-1" />}
+                  </Label>
+                  <Select
+                    value={profile.department || ""}
+                    onValueChange={(value) => handleInputChange("department", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CSE">Computer Science & Engineering</SelectItem>
+                      <SelectItem value="IT">Information Technology</SelectItem>
+                      <SelectItem value="ECE">Electronics & Communication</SelectItem>
+                      <SelectItem value="MECH">Mechanical Engineering</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="designation">Designation *</Label>
+                  <Label htmlFor="designation">
+                    Designation *
+                    {profile.designation && <CheckCircle className="h-4 w-4 text-green-500 inline ml-1" />}
+                  </Label>
                   <Select
                     value={profile.designation || ""}
                     onValueChange={(value) => handleInputChange("designation", value)}
@@ -357,7 +442,7 @@ export default function ProfilePage() {
                 ) : (
                   <>
                     <Save className="mr-2 h-5 w-5" />
-                    {profile.isSaved ? "Update Profile 💾" : "Save Profile 🎉"}
+                    {profile.isSaved ? "Update Profile 💾" : "Complete Profile 🎉"}
                   </>
                 )}
               </Button>
@@ -367,4 +452,4 @@ export default function ProfilePage() {
       </div>
     </div>
   )
-}
+} 

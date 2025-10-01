@@ -54,7 +54,7 @@ export default function DepartmentSelectionPage() {
     // Check if user is logged in
     const currentUserId = localStorage.getItem("currentUserId")
     if (!currentUserId) {
-      router.push("/auth/first-login")
+      router.push("/auth/faculty-login")
       return
     }
 
@@ -105,7 +105,7 @@ export default function DepartmentSelectionPage() {
   }
 
   const handleBack = () => {
-    router.push("/auth/staff-login")
+    router.push("/auth/faculty-login")
   }
 
   return (

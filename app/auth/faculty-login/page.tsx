@@ -56,8 +56,10 @@ export default function FacultyLoginPage() {
       }
 
       // Save JWT token & faculty profile
-      localStorage.setItem("facultyToken", data.token);
-      localStorage.setItem("facultyProfile", JSON.stringify(data.faculty));
+      localStorage.setItem("facultyToken", data.token)
+    localStorage.setItem("facultyProfile", JSON.stringify(data.faculty))
+    localStorage.setItem("currentUserId", data.faculty.id) // ✅ Added
+    localStorage.setItem("role", "faculty") // ✅ Added
 
       toast({
         title: "Login Successful 🎉",
