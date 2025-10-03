@@ -16,9 +16,9 @@ export async function POST(req: Request) {
     const client = await clientPromise;
     const db = client.db("university");
     const facultyCollection = db.collection("faculty");
-    console.log("Connected to MongoDB Atlas");
+    console.log("✅ Connected to MongoDB Atlas");
 
-    // Check if username or facultyCode already exists
+    // Check if username or facultyCode exists
     const existing = await facultyCollection.findOne({
       $or: [{ username }, { facultyCode }],
     });
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate random password and hash it
+    // Generate password
     const plainPassword = crypto.randomBytes(6).toString("hex");
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
@@ -46,38 +46,40 @@ export async function POST(req: Request) {
     await facultyCollection.insertOne(newFaculty);
     console.log("✅ Faculty added to MongoDB:", username);
 
-    // Setup Nodemailer transporter
+    // Setup Nodemailer (use port 587 for cloud-friendly TLS)
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
+      port: 587,
+      secure: false, // TLS
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // Must be Gmail App Password
+        pass: process.env.EMAIL_PASS, // Gmail App Password
       },
     });
 
-    // Send email in a try/catch so it doesn't crash the API
+    let emailResult = { sent: false, error: null };
+
+    // Send email in try/catch so it doesn't block API
     try {
       await transporter.sendMail({
         from: `"University Admin" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Your Faculty Account Details",
-        text: `Hello ${fullName},\n\nUsername: ${username}\nPassword: ${plainPassword}\n\nPlease log in and change your password immediately.`,
+        text: `Hello ${fullName},\nUsername: ${username}\nPassword: ${plainPassword}\n\nPlease log in and change your password immediately.`,
       });
+      emailResult.sent = true;
       console.log("✅ Email sent successfully to", email);
-    } catch (mailErr) {
-      console.error("❌ Email failed:", mailErr);
-      // Do NOT crash the API; return a partial success message
-      return NextResponse.json(
-        { message: "Faculty added, but email failed to send" },
-        { status: 200 }
-      );
+    } catch (err: any) {
+      emailResult.error = err.message;
+      console.error("❌ Email failed:", err);
     }
 
-    // Return success response
+    // Always return JSON to frontend
     return NextResponse.json(
-      { message: "Faculty added successfully and email sent 🎉" },
+      {
+        message: "Faculty added successfully",
+        emailResult,
+      },
       { status: 201 }
     );
   } catch (err) {
