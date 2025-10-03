@@ -82,7 +82,7 @@ export async function POST(req: Request) {
         });
 
         await transporter.sendMail({
-          from: `"University Admin" <${process.env.MAILJET_VERIFIED_SENDER}>`,
+          from: `"University Admin" <obedrajasingh@gmail>"`,
           to: email,
           subject: "Your Faculty Account Details",
           text: `Hello ${fullName},
