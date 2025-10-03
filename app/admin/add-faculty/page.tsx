@@ -39,16 +39,10 @@ export default function AddFacultyPage() {
       const data = await res.json();
 
       if (res.ok) {
-        if (data.emailResult?.sent) {
-          toast({ title: "Faculty added & email sent 🎉" });
-        } else {
-          toast({
-            title: "Faculty added, but email failed ⚠️",
-            description: data.emailResult?.error || "Unknown email error",
-            variant: "destructive",
-          });
-        }
-
+        toast({
+          title: "Faculty added successfully 🎉",
+          description: "Email will be sent to the faculty shortly.",
+        });
         // Reset form
         setFormData({ fullName: "", email: "", username: "", facultyCode: "" });
       } else {
@@ -68,7 +62,9 @@ export default function AddFacultyPage() {
         <Card className="shadow-2xl border border-gray-200 hover:scale-[1.02] transition-transform duration-300">
           <CardHeader className="text-center bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-t-lg">
             <CardTitle className="text-2xl font-bold">Add Faculty 👨‍🏫</CardTitle>
-            <CardDescription>Enter faculty details. Password will be sent via email automatically.</CardDescription>
+            <CardDescription>
+              Enter faculty details. Password will be sent via email automatically.
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -126,7 +122,11 @@ export default function AddFacultyPage() {
                 >
                   ← Back to Dashboard
                 </Button>
-                <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
                   {isLoading ? "Adding..." : "Add Faculty"}
                 </Button>
               </div>

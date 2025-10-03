@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const facultyCollection = db.collection("faculty");
     console.log("✅ Connected to MongoDB Atlas");
 
-    // Check if username or facultyCode exists
+    // Check for existing username or facultyCode
     const existing = await facultyCollection.findOne({
       $or: [{ username }, { facultyCode }],
     });
@@ -43,45 +43,44 @@ export async function POST(req: Request) {
       createdAt: new Date(),
     };
 
+    // Insert into MongoDB
     await facultyCollection.insertOne(newFaculty);
     console.log("✅ Faculty added to MongoDB:", username);
 
-    // Setup Nodemailer (use port 587 for cloud-friendly TLS)
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false, // TLS
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // Gmail App Password
-      },
-    });
-
-    let emailResult = { sent: false, error: null };
-
-    // Send email in try/catch so it doesn't block API
-    try {
-      await transporter.sendMail({
-        from: `"University Admin" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Your Faculty Account Details",
-        text: `Hello ${fullName},\nUsername: ${username}\nPassword: ${plainPassword}\n\nPlease log in and change your password immediately.`,
-      });
-      emailResult.sent = true;
-      console.log("✅ Email sent successfully to", email);
-    } catch (err: any) {
-      emailResult.error = err.message;
-      console.error("❌ Email failed:", err);
-    }
-
-    // Always return JSON to frontend
-    return NextResponse.json(
-      {
-        message: "Faculty added successfully",
-        emailResult,
-      },
+    // Respond immediately to frontend (non-blocking email)
+    const response = NextResponse.json(
+      { message: "Faculty added successfully. Email will be sent shortly." },
       { status: 201 }
     );
+
+    // Send email in background
+    (async () => {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: "smtp.gmail.com",
+          port: 587,
+          secure: false, // TLS
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS, // Gmail App Password
+          },
+        });
+
+        await transporter.sendMail({
+          from: `"University Admin" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: "Your Faculty Account Details",
+          text: `Hello ${fullName},\nUsername: ${username}\nPassword: ${plainPassword}\n\nPlease log in and change your password immediately.`,
+        });
+
+        console.log("✅ Email sent successfully to", email);
+      } catch (err) {
+        console.error("❌ Email failed:", err);
+      }
+    })();
+
+    return response;
+
   } catch (err) {
     console.error("❌ Internal server error:", err);
     return NextResponse.json(
