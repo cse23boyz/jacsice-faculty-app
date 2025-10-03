@@ -39,14 +39,24 @@ export default function AddFacultyPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast({ title: "Faculty added successfully 🎉" });
+        if (data.emailResult?.sent) {
+          toast({ title: "Faculty added & email sent 🎉" });
+        } else {
+          toast({
+            title: "Faculty added, but email failed ⚠️",
+            description: data.emailResult?.error || "Unknown email error",
+            variant: "destructive",
+          });
+        }
+
+        // Reset form
         setFormData({ fullName: "", email: "", username: "", facultyCode: "" });
       } else {
-        toast({ title: "Error", description: data.error, variant: "destructive" });
+        toast({ title: "Error", description: data.error || "Something went wrong", variant: "destructive" });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast({ title: "Error", description: "Something went wrong", variant: "destructive" });
+      toast({ title: "Error", description: err.message || "Something went wrong", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
