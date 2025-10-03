@@ -12,17 +12,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing field" }, { status: 400 });
     }
 
-    console.log("Connecting to MongoDB Atlas...");
     const client = await clientPromise;
     const db = client.db("university");
     const facultyCollection = db.collection("faculty");
-    console.log("✅ Connected to MongoDB Atlas");
 
-    // Check for existing username or facultyCode
+    // Check if username or facultyCode exists
     const existing = await facultyCollection.findOne({
       $or: [{ username }, { facultyCode }],
     });
-
     if (existing) {
       return NextResponse.json(
         { error: "Username or Faculty Code already exists" },
@@ -30,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate password
+    // Generate random password
     const plainPassword = crypto.randomBytes(6).toString("hex");
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
@@ -43,44 +40,49 @@ export async function POST(req: Request) {
       createdAt: new Date(),
     };
 
-    // Insert into MongoDB
+    // Insert faculty into DB
     await facultyCollection.insertOne(newFaculty);
-    console.log("✅ Faculty added to MongoDB:", username);
 
-    // Respond immediately to frontend (non-blocking email)
+    // Respond to frontend immediately
     const response = NextResponse.json(
       { message: "Faculty added successfully. Email will be sent shortly." },
       { status: 201 }
     );
 
-    // Send email in background
+    // Send email in background using Mailjet SMTP
     (async () => {
       try {
         const transporter = nodemailer.createTransport({
-          host: "smtp.gmail.com",
+          host: "in-v3.mailjet.com",
           port: 587,
-          secure: false, // TLS
           auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS, // Gmail App Password
+            user: process.env.MAILJET_USER,
+            pass: process.env.MAILJET_PASS,
           },
         });
 
         await transporter.sendMail({
-          from: `"University Admin" <${process.env.EMAIL_USER}>`,
+          from: `"University Admin" <${process.env.MAILJET_USER}>`,
           to: email,
           subject: "Your Faculty Account Details",
-          text: `Hello ${fullName},\nUsername: ${username}\nPassword: ${plainPassword}\n\nPlease log in and change your password immediately.`,
+          text: `Hello ${fullName},
+
+Your account has been created.
+
+Username: ${username}
+Password: ${plainPassword}
+
+Please log in and change your password immediately.
+`,
         });
 
-        console.log("✅ Email sent successfully to", email);
+        console.log("✅ Email sent successfully via Mailjet to", email);
       } catch (err) {
         console.error("❌ Email failed:", err);
       }
     })();
 
     return response;
-
   } catch (err) {
     console.error("❌ Internal server error:", err);
     return NextResponse.json(
