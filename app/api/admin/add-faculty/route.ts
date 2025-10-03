@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { MongoClient } from "mongodb";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+
+// MongoDB client singleton
+let client: MongoClient;
+
+async function getClient() {
+  if (!client) {
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI is not set in environment variables");
+    }
+    client = new MongoClient(process.env.MONGODB_URI);
+    await client.connect();
+  }
+  return client;
+}
 
 export async function POST(req: Request) {
   try {
@@ -12,11 +26,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing field" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("university");
+    // Connect to MongoDB Atlas
+    const client = await getClient();
+    const db = client.db(process.env.DB_NAME || "university");
     const facultyCollection = db.collection("faculty");
 
-    // Check if username or facultyCode exists
+    // Check for existing username or facultyCode
     const existing = await facultyCollection.findOne({
       $or: [{ username }, { facultyCode }],
     });
@@ -40,18 +55,23 @@ export async function POST(req: Request) {
       createdAt: new Date(),
     };
 
-    // Insert faculty into DB
+    // Insert into DB
     await facultyCollection.insertOne(newFaculty);
 
-    // Respond to frontend immediately
+    // Respond immediately to frontend
     const response = NextResponse.json(
       { message: "Faculty added successfully. Email will be sent shortly." },
       { status: 201 }
     );
 
-    // Send email in background using Mailjet SMTP
+    // Send email in background using Mailjet
     (async () => {
       try {
+        if (!process.env.MAILJET_USER || !process.env.MAILJET_PASS) {
+          console.error("Mailjet credentials not set");
+          return;
+        }
+
         const transporter = nodemailer.createTransport({
           host: "in-v3.mailjet.com",
           port: 587,
