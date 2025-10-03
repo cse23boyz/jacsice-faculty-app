@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 
+// POST /api/admin/add-faculty
 export async function POST(req: Request) {
   try {
     const { fullName, email, username, facultyCode } = await req.json();
@@ -12,10 +13,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing field" }, { status: 400 });
     }
 
-    const client = await clientPromise;
+    // Connect to MongoDB Atlas
+    const client = await clientPromise();
     const db = client.db("university");
     const facultyCollection = db.collection("faculty");
 
+    // Check if username or facultyCode exists
     const existing = await facultyCollection.findOne({
       $or: [{ username }, { facultyCode }],
     });
@@ -27,6 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Generate password and hash it
     const plainPassword = crypto.randomBytes(6).toString("hex");
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
@@ -41,28 +45,30 @@ export async function POST(req: Request) {
 
     await facultyCollection.insertOne(newFaculty);
 
-    // setup mailer
+    // Setup Nodemailer with Gmail App Password
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
-      secure: true,
+      secure: true, // true for port 465
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: process.env.EMAIL_USER, // Gmail address
+        pass: process.env.EMAIL_PASS, // Gmail App Password
       },
     });
 
+    // Send email
     try {
       await transporter.sendMail({
         from: `"University Admin" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "Your Faculty Account Details",
-        text: `Hello ${fullName},\n\nUsername: ${username}\nPassword: ${plainPassword}`,
+        text: `Hello ${fullName},\n\nUsername: ${username}\nPassword: ${plainPassword}\n\nPlease log in and change your password immediately.`,
       });
+      console.log("✅ Email sent successfully to", email);
     } catch (mailErr) {
-      console.error("❌ Email send failed:", mailErr);
+      console.error("❌ Email failed:", mailErr);
       return NextResponse.json(
-        { error: "Faculty added, but email could not be sent" },
+        { error: "Faculty added, but email failed" },
         { status: 500 }
       );
     }
@@ -72,7 +78,7 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (err) {
-    console.error("❌ Internal error:", err);
+    console.error("❌ Internal server error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

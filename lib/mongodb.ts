@@ -1,37 +1,25 @@
-// import { MongoClient } from "mongodb";
+import mongoose from "mongoose";
 
-// if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is not defined");
+const MONGODB_URI = process.env.MONGODB_URI;
 
-// const client = new MongoClient(process.env.MONGODB_URI);
-// const clientPromise = client.connect();
-
-// export default clientPromise;
-
-import { MongoClient } from "mongodb";
-
-if (!process.env.MONGODB_URI) {
-  throw new Error("Please define MONGODB_URI in .env");
+if (!MONGODB_URI) {
+  throw new Error("Please define the MONGODB_URI environment variable");
 }
 
-const uri = process.env.MONGODB_URI;
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+let cached = (global as any).mongoose;
 
-declare global {
-  var _mongoClientPromise: Promise<MongoClient>;
+if (!cached) {
+  cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-if (process.env.NODE_ENV === "development") {
-  // Use global variable to preserve value across hot reloads
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri);
-    global._mongoClientPromise = client.connect();
+async function dbConnect() {
+  if (cached.conn) return cached.conn;
+
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(MONGODB_URI as string).then((mongoose) => mongoose);
   }
-  clientPromise = global._mongoClientPromise;
-} else {
-  // In production, no global variable
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
+  cached.conn = await cached.promise;
+  return cached.conn;
 }
 
-export default clientPromise;
+export default dbConnect;
