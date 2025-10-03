@@ -41,24 +41,38 @@ export async function POST(req: Request) {
 
     await facultyCollection.insertOne(newFaculty);
 
+    // setup mailer
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
     });
 
-    await transporter.sendMail({
-      from: `"University Admin" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your Faculty Account Details",
-      text: `Hello ${fullName},\n\nUsername: ${username}\nPassword: ${plainPassword}`,
-    });
+    try {
+      await transporter.sendMail({
+        from: `"University Admin" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Your Faculty Account Details",
+        text: `Hello ${fullName},\n\nUsername: ${username}\nPassword: ${plainPassword}`,
+      });
+    } catch (mailErr) {
+      console.error("❌ Email send failed:", mailErr);
+      return NextResponse.json(
+        { error: "Faculty added, but email could not be sent" },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json({ message: "Faculty added successfully" }, { status: 201 });
+    return NextResponse.json(
+      { message: "Faculty added successfully and email sent 🎉" },
+      { status: 201 }
+    );
   } catch (err) {
-    console.error(err);
+    console.error("❌ Internal error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
