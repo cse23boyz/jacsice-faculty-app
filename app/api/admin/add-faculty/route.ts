@@ -4,7 +4,6 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 
-// POST /api/admin/add-faculty
 export async function POST(req: Request) {
   try {
     const { fullName, email, username, facultyCode } = await req.json();
@@ -13,12 +12,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing field" }, { status: 400 });
     }
 
-    // Connect to MongoDB Atlas
-    const client = await clientPromise();
+    console.log("Connecting to MongoDB Atlas...");
+    const client = await clientPromise;
     const db = client.db("university");
     const facultyCollection = db.collection("faculty");
+    console.log("Connected to MongoDB Atlas");
 
-    // Check if username or facultyCode exists
+    // Check if username or facultyCode already exists
     const existing = await facultyCollection.findOne({
       $or: [{ username }, { facultyCode }],
     });
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate password and hash it
+    // Generate random password and hash it
     const plainPassword = crypto.randomBytes(6).toString("hex");
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
@@ -44,19 +44,20 @@ export async function POST(req: Request) {
     };
 
     await facultyCollection.insertOne(newFaculty);
+    console.log("✅ Faculty added to MongoDB:", username);
 
-    // Setup Nodemailer with Gmail App Password
+    // Setup Nodemailer transporter
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
-      secure: true, // true for port 465
+      secure: true,
       auth: {
-        user: process.env.EMAIL_USER, // Gmail address
-        pass: process.env.EMAIL_PASS, // Gmail App Password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS, // Must be Gmail App Password
       },
     });
 
-    // Send email
+    // Send email in a try/catch so it doesn't crash the API
     try {
       await transporter.sendMail({
         from: `"University Admin" <${process.env.EMAIL_USER}>`,
@@ -67,18 +68,23 @@ export async function POST(req: Request) {
       console.log("✅ Email sent successfully to", email);
     } catch (mailErr) {
       console.error("❌ Email failed:", mailErr);
+      // Do NOT crash the API; return a partial success message
       return NextResponse.json(
-        { error: "Faculty added, but email failed" },
-        { status: 500 }
+        { message: "Faculty added, but email failed to send" },
+        { status: 200 }
       );
     }
 
+    // Return success response
     return NextResponse.json(
       { message: "Faculty added successfully and email sent 🎉" },
       { status: 201 }
     );
   } catch (err) {
     console.error("❌ Internal server error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
