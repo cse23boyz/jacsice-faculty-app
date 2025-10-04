@@ -25,19 +25,96 @@ import { Search, Filter, LogOut, Award, ArrowLeft, BookOpen, Calendar, FileText,
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 
+interface FacultyMember {
+  _id: string
+  id: string
+  fullName: string
+  email: string
+  department: string
+  designation: string
+  specialization?: string
+  profilePhoto?: string
+  certifications: Certification[]
+  totalCertifications: number
+}
+
+interface Certification {
+  _id: string
+  id: string
+  title: string
+  type: "conference" | "fdp" | "journal" | "research" | "seminar" | "project"
+  organization: string
+  date: string
+  duration?: string
+  description?: string
+  isPinned: boolean
+}
+
 export default function ViewCertificationsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDepartment, setSelectedDepartment] = useState("All")
-  const [facultyList, setFacultyList] = useState([])
-  const [filteredFaculty, setFilteredFaculty] = useState([])
-  const [selectedFaculty, setSelectedFaculty] = useState(null)
-  const [currentUserProfile, setCurrentUserProfile] = useState(null)
+  const [facultyList, setFacultyList] = useState<FacultyMember[]>([])
+  const [filteredFaculty, setFilteredFaculty] = useState<FacultyMember[]>([])
+  const [selectedFaculty, setSelectedFaculty] = useState<FacultyMember | null>(null)
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   const { department, setUserRole, setDepartment } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem("facultyToken")
+        if (!token) {
+          router.push("/auth/faculty-login")
+          return
+        }
+
+        // Load current user profile for sidebar
+        const profileResponse = await fetch("/api/faculty/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json()
+          setCurrentUserProfile(profileData)
+        }
+
+        // Load all faculty members with their certifications from MongoDB
+        const facultyResponse = await fetch("/api/faculty/all", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (facultyResponse.ok) {
+          const facultyData = await facultyResponse.json()
+          setFacultyList(facultyData)
+        } else {
+          throw new Error("Failed to fetch faculty data")
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load faculty certifications",
+          variant: "destructive",
+        })
+        // Fallback to localStorage
+        loadFromLocalStorage()
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [router, toast])
+
+  const loadFromLocalStorage = () => {
     // Load current user profile for sidebar
     const currentUserId = localStorage.getItem("currentUserId")
     if (currentUserId) {
@@ -47,7 +124,7 @@ export default function ViewCertificationsPage() {
       }
     }
 
-    // Load all faculty profiles with their certifications
+    // Load all faculty profiles with their certifications from localStorage
     const allProfiles = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
@@ -56,18 +133,19 @@ export default function ViewCertificationsPage() {
           const profile = JSON.parse(localStorage.getItem(key) || "{}")
           if (profile && profile.isSaved && profile.fullName) {
             // Load certifications for this user
-            const certifications = {
-              conferences: JSON.parse(localStorage.getItem(`certifications_${profile.userId}_conference`) || "[]"),
-              fdps: JSON.parse(localStorage.getItem(`certifications_${profile.userId}_fdps`) || "[]"),
-              journals: JSON.parse(localStorage.getItem(`certifications_${profile.userId}_journal`) || "[]"),
-              projects: JSON.parse(localStorage.getItem(`certifications_${profile.userId}_project_guided`) || "[]"),
-              seminars: JSON.parse(localStorage.getItem(`certifications_${profile.userId}_seminar`) || "[]"),
-            }
-
+            const certifications = JSON.parse(localStorage.getItem(`certifications_${profile.userId}`) || "[]")
+            
             allProfiles.push({
-              ...profile,
-              certifications,
-              totalCertifications: Object.values(certifications).flat().length,
+              _id: profile.userId,
+              id: profile.userId,
+              fullName: profile.fullName,
+              email: profile.email,
+              department: profile.department,
+              designation: profile.designation,
+              specialization: profile.specialization,
+              profilePhoto: profile.profilePhoto,
+              certifications: certifications,
+              totalCertifications: certifications.length,
             })
           }
         } catch (error) {
@@ -76,7 +154,7 @@ export default function ViewCertificationsPage() {
       }
     }
     setFacultyList(allProfiles)
-  }, [])
+  }
 
   useEffect(() => {
     // Filter faculty based on search term and department
@@ -100,6 +178,8 @@ export default function ViewCertificationsPage() {
   const handleLogout = () => {
     setUserRole(null)
     setDepartment(null)
+    localStorage.removeItem("currentUserId")
+    localStorage.removeItem("facultyToken")
     toast({
       title: "Logged Out Successfully 👋",
       description: "Thank you for using JACSICE Faculty Portal",
@@ -109,41 +189,64 @@ export default function ViewCertificationsPage() {
 
   const departments = ["All", "CSE", "IT", "ECE", "MECH"]
 
-  const getCertificationIcon = (type) => {
+  const getCertificationIcon = (type: string) => {
     switch (type) {
-      case "conferences":
+      case "conference":
         return <Presentation className="h-4 w-4" />
-      case "fdps":
+      case "fdp":
         return <BookOpen className="h-4 w-4" />
-      case "journals":
+      case "journal":
         return <FileText className="h-4 w-4" />
-      case "projects":
+      case "research":
         return <Award className="h-4 w-4" />
-      case "seminars":
+      case "seminar":
         return <Calendar className="h-4 w-4" />
+      case "project":
+        return <Award className="h-4 w-4" />
       default:
         return <Award className="h-4 w-4" />
     }
   }
 
-  const getCertificationLabel = (type) => {
+  const getCertificationLabel = (type: string) => {
     switch (type) {
-      case "conferences":
+      case "conference":
         return "Conferences"
-      case "fdps":
+      case "fdp":
         return "FDPs"
-      case "journals":
+      case "journal":
         return "Journals"
-      case "projects":
-        return "Projects Guided"
-      case "seminars":
+      case "research":
+        return "Research"
+      case "seminar":
         return "Seminars"
+      case "project":
+        return "Projects"
       default:
         return type
     }
   }
 
-  const getInitials = (name) => {
+  const getCertificationsByType = (certifications: Certification[]) => {
+    const byType: { [key: string]: Certification[] } = {
+      conference: [],
+      fdp: [],
+      journal: [],
+      research: [],
+      seminar: [],
+      project: []
+    }
+
+    certifications.forEach(cert => {
+      if (byType[cert.type]) {
+        byType[cert.type].push(cert)
+      }
+    })
+
+    return byType
+  }
+
+  const getInitials = (name: string) => {
     if (!name) return "👨‍🏫"
     return name
       .split(' ')
@@ -151,6 +254,17 @@ export default function ViewCertificationsPage() {
       .join('')
       .toUpperCase()
       .slice(0, 2)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading faculty certifications...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -167,7 +281,7 @@ export default function ViewCertificationsPage() {
                   className="object-cover"
                 />
                 <AvatarFallback className="bg-blue-100 text-blue-800 font-semibold">
-                  {getInitials(currentUserProfile?.fullName)}
+                  {getInitials(currentUserProfile?.fullName || "")}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -199,6 +313,35 @@ export default function ViewCertificationsPage() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Statistics 📊</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <div className="space-y-2 p-2">
+                  <Card className="p-3 bg-blue-50 border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Award className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium">Total Faculty</span>
+                      </div>
+                      <Badge className="bg-blue-100 text-blue-800">{facultyList.length}</Badge>
+                    </div>
+                  </Card>
+
+                  <Card className="p-3 bg-green-50 border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <FileText className="h-4 w-4 text-green-500" />
+                        <span className="text-sm font-medium">Total Certifications</span>
+                      </div>
+                      <Badge className="bg-green-100 text-green-800">
+                        {facultyList.reduce((total, faculty) => total + faculty.totalCertifications, 0)}
+                      </Badge>
+                    </div>
+                  </Card>
+                </div>
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
@@ -259,8 +402,8 @@ export default function ViewCertificationsPage() {
 
             {filteredFaculty.length > 0 ? (
               <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-6">
-                {filteredFaculty.map((faculty, index) => (
-                  <Card key={index} className="hover:shadow-lg transition-shadow animate-fade-in">
+                {filteredFaculty.map((faculty) => (
+                  <Card key={faculty.id} className="hover:shadow-lg transition-shadow animate-fade-in">
                     <CardHeader className="pb-3">
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-12 w-12 border-2 border-blue-200">
@@ -287,16 +430,18 @@ export default function ViewCertificationsPage() {
 
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-3">
-                        {Object.entries(faculty.certifications).map(([type, items]) => (
-                          <div key={type} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                            <div className="flex items-center space-x-2">
-                              {getCertificationIcon(type)}
-                              <span className="text-sm font-medium">{getCertificationLabel(type)}</span>
+                        {Object.entries(getCertificationsByType(faculty.certifications)).map(([type, items]) => (
+                          items.length > 0 && (
+                            <div key={type} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                              <div className="flex items-center space-x-2">
+                                {getCertificationIcon(type)}
+                                <span className="text-sm font-medium">{getCertificationLabel(type)}</span>
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                {items.length}
+                              </Badge>
                             </div>
-                            <Badge variant="secondary" className="text-xs">
-                              {items.length}
-                            </Badge>
-                          </div>
+                          )
                         ))}
                       </div>
 
@@ -369,37 +514,54 @@ export default function ViewCertificationsPage() {
                 </div>
 
                 <div className="space-y-6">
-                  {Object.entries(selectedFaculty.certifications).map(([type, items]) => (
-                    <Card key={type}>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          {getCertificationIcon(type)}
-                          <span>
-                            {getCertificationLabel(type)} ({items.length})
-                          </span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {items.length > 0 ? (
+                  {Object.entries(getCertificationsByType(selectedFaculty.certifications)).map(([type, items]) => (
+                    items.length > 0 && (
+                      <Card key={type}>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            {getCertificationIcon(type)}
+                            <span>
+                              {getCertificationLabel(type)} ({items.length})
+                            </span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
                           <div className="space-y-3">
-                            {items.map((item, idx) => (
-                              <div key={idx} className="p-3 border rounded-lg">
-                                <h4 className="font-medium">{item.title || item.name || "Untitled"}</h4>
-                                {item.date && <p className="text-sm text-gray-600">Date: {item.date}</p>}
-                                {item.organization && (
-                                  <p className="text-sm text-gray-600">Organization: {item.organization}</p>
+                            {items.map((item) => (
+                              <div key={item.id} className="p-3 border rounded-lg">
+                                <h4 className="font-medium">{item.title}</h4>
+                                {item.date && (
+                                  <p className="text-sm text-gray-600">
+                                    <Calendar className="h-3 w-3 inline mr-1" />
+                                    Date: {new Date(item.date).toLocaleDateString()}
+                                  </p>
                                 )}
-                                {item.description && <p className="text-sm text-gray-500 mt-1">{item.description}</p>}
+                                {item.organization && (
+                                  <p className="text-sm text-gray-600">
+                                    <Award className="h-3 w-3 inline mr-1" />
+                                    Organization: {item.organization}
+                                  </p>
+                                )}
+                                {item.duration && (
+                                  <p className="text-sm text-gray-600">
+                                    <BookOpen className="h-3 w-3 inline mr-1" />
+                                    Duration: {item.duration}
+                                  </p>
+                                )}
+                                {item.description && (
+                                  <p className="text-sm text-gray-500 mt-2">{item.description}</p>
+                                )}
+                                {item.isPinned && (
+                                  <Badge className="mt-2 bg-yellow-100 text-yellow-800">
+                                    Pinned
+                                  </Badge>
+                                )}
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <p className="text-gray-500 text-center py-4">
-                            No {getCertificationLabel(type).toLowerCase()} recorded
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                    )
                   ))}
                 </div>
               </div>

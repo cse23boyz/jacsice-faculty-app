@@ -15,6 +15,8 @@ import { ArrowLeft, User, Mail, Phone, Calendar, BookOpen, Save, MapPin, CheckCi
 import { useToast } from "@/hooks/use-toast"
 
 interface UserProfile {
+  _id?: string
+  id?: string
   userId: string
   fullName: string
   email: string
@@ -61,56 +63,103 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    const userId = localStorage.getItem("currentUserId")
-    if (!userId) {
-      router.push("/auth/faculty-login")
-      return
-    }
+    const fetchProfileData = async () => {
+      try {
+        const token = localStorage.getItem("facultyToken")
+        const userId = localStorage.getItem("currentUserId")
+        
+        if (!token || !userId) {
+          router.push("/auth/faculty-login")
+          return
+        }
 
-    setCurrentUserId(userId)
+        setCurrentUserId(userId)
 
-    // Load existing profile data
-    const savedProfile = localStorage.getItem(`userProfile_${userId}`)
-    if (savedProfile) {
-      const parsedProfile = JSON.parse(savedProfile)
-      setProfile({
-        userId: userId,
-        fullName: parsedProfile.fullName || "",
-        email: parsedProfile.email || "",
-        username: parsedProfile.username || "",
-        phone: parsedProfile.phone || "",
-        department: parsedProfile.department || "",
-        designation: parsedProfile.designation || "",
-        dateOfJoining: parsedProfile.dateOfJoining || "",
-        specialization: parsedProfile.specialization || "",
-        experience: parsedProfile.experience || "",
-        qualification: parsedProfile.qualification || "",
-        address: parsedProfile.address || "",
-        bio: parsedProfile.bio || "",
-        profilePhoto: parsedProfile.profilePhoto || "",
-        isSaved: parsedProfile.isSaved || false,
-        isNewUser: parsedProfile.isNewUser || false,
-      })
-      setIsNewUser(!parsedProfile.isSaved)
-    } else {
-      // New user - get basic info from faculty profile
-      const facultyProfile = localStorage.getItem("facultyProfile")
-      if (facultyProfile) {
-        const facultyData = JSON.parse(facultyProfile)
-        setProfile(prev => ({
-          ...prev,
-          userId: userId,
-          fullName: facultyData.fullName || "",
-          email: facultyData.email || "",
-          username: facultyData.username || "",
-          isNewUser: true,
-        }))
-      } else {
-        setProfile(prev => ({ ...prev, userId: userId, isNewUser: true }))
+        // Fetch profile from MongoDB
+        const response = await fetch("/api/faculty/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (response.ok) {
+          const profileData = await response.json()
+          setProfile({
+            userId: userId,
+            fullName: profileData.fullName || "",
+            email: profileData.email || "",
+            username: profileData.username || "",
+            phone: profileData.phone || "",
+            department: profileData.department || "",
+            designation: profileData.designation || "",
+            dateOfJoining: profileData.dateOfJoining || "",
+            specialization: profileData.specialization || "",
+            experience: profileData.experience || "",
+            qualification: profileData.qualification || "",
+            address: profileData.address || "",
+            bio: profileData.bio || "",
+            profilePhoto: profileData.profilePhoto || "",
+            isSaved: true,
+            isNewUser: false,
+          })
+          setIsNewUser(false)
+        } else if (response.status === 404) {
+          // Profile not found in MongoDB, check localStorage as fallback
+          const savedProfile = localStorage.getItem(`userProfile_${userId}`)
+          if (savedProfile) {
+            const parsedProfile = JSON.parse(savedProfile)
+            setProfile({
+              userId: userId,
+              fullName: parsedProfile.fullName || "",
+              email: parsedProfile.email || "",
+              username: parsedProfile.username || "",
+              phone: parsedProfile.phone || "",
+              department: parsedProfile.department || "",
+              designation: parsedProfile.designation || "",
+              dateOfJoining: parsedProfile.dateOfJoining || "",
+              specialization: parsedProfile.specialization || "",
+              experience: parsedProfile.experience || "",
+              qualification: parsedProfile.qualification || "",
+              address: parsedProfile.address || "",
+              bio: parsedProfile.bio || "",
+              profilePhoto: parsedProfile.profilePhoto || "",
+              isSaved: parsedProfile.isSaved || false,
+              isNewUser: !parsedProfile.isSaved,
+            })
+            setIsNewUser(!parsedProfile.isSaved)
+          } else {
+            // New user - get basic info from faculty profile
+            const facultyProfile = localStorage.getItem("facultyProfile")
+            if (facultyProfile) {
+              const facultyData = JSON.parse(facultyProfile)
+              setProfile(prev => ({
+                ...prev,
+                userId: userId,
+                fullName: facultyData.fullName || "",
+                email: facultyData.email || "",
+                username: facultyData.username || "",
+                isNewUser: true,
+              }))
+            } else {
+              setProfile(prev => ({ ...prev, userId: userId, isNewUser: true }))
+            }
+            setIsNewUser(true)
+          }
+        } else {
+          throw new Error("Failed to fetch profile")
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load profile data",
+          variant: "destructive",
+        })
       }
-      setIsNewUser(true)
     }
-  }, [router])
+
+    fetchProfileData()
+  }, [router, toast])
 
   const handleInputChange = (field: keyof UserProfile, value: string) => {
     setProfile((prev) => ({
@@ -188,7 +237,8 @@ export default function ProfilePage() {
     setIsLoading(true)
 
     try {
-      if (!currentUserId) {
+      const token = localStorage.getItem("facultyToken")
+      if (!token || !currentUserId) {
         toast({
           title: "Error",
           description: "User session not found. Please login again.",
@@ -209,27 +259,59 @@ export default function ProfilePage() {
         return
       }
 
-      // Save profile with completion flag
-      const updatedProfile = {
-        ...profile,
-        isSaved: true,
-        isNewUser: false,
+      // Prepare data for MongoDB
+      const profileData = {
+        fullName: profile.fullName,
+        email: profile.email,
+        username: profile.username,
+        phone: profile.phone,
+        department: profile.department,
+        designation: profile.designation,
+        dateOfJoining: profile.dateOfJoining,
+        specialization: profile.specialization,
+        experience: profile.experience,
+        qualification: profile.qualification,
+        address: profile.address,
+        bio: profile.bio,
+        profilePhoto: profile.profilePhoto,
         updatedAt: new Date().toISOString(),
       }
 
-      localStorage.setItem(`userProfile_${currentUserId}`, JSON.stringify(updatedProfile))
-
-      toast({
-        title: "Profile Saved Successfully! 🎉",
-        description: isNewUser 
-          ? "Your profile has been completed. Welcome!" 
-          : "Your profile has been updated successfully.",
+      // Save to MongoDB
+      const response = await fetch("/api/faculty/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(profileData),
       })
 
-      // Redirect to dashboard after successful save
-      setTimeout(() => {
-        router.push("/staff/dashboard")
-      }, 1500)
+      if (response.ok) {
+        // Also save to localStorage as backup
+        const updatedProfile = {
+          ...profile,
+          isSaved: true,
+          isNewUser: false,
+          updatedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(`userProfile_${currentUserId}`, JSON.stringify(updatedProfile))
+
+        toast({
+          title: "Profile Saved Successfully! 🎉",
+          description: isNewUser 
+            ? "Your profile has been completed. Welcome!" 
+            : "Your profile has been updated successfully.",
+        })
+
+        // Redirect to dashboard after successful save
+        setTimeout(() => {
+          router.push("/staff/dashboard")
+        }, 1500)
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to save profile")
+      }
     } catch (error) {
       console.error("Error saving profile:", error)
       toast({
