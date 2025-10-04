@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +14,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing field" }, { status: 400 });
     }
 
-    // Connect with native driver
     const client = await clientPromise;
     const db = client.db("university");
     const facultyCollection = db.collection("faculty");
@@ -42,25 +43,19 @@ export async function POST(req: Request) {
 
     await facultyCollection.insertOne(newFaculty);
 
-    // Nodemailer Gmail App Password (make sure EMAIL_USER + EMAIL_PASS are set)
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: `"University Admin" <${process.env.EMAIL_USER}>`,
+    // Send email via SendGrid
+    const msg = {
       to: email,
+      from: process.env.EMAIL_SENDER!, 
       subject: "Your Faculty Account Details",
       text: `Hello ${fullName},\n\nUsername: ${username}\nPassword: ${plainPassword}`,
-    });
+    };
 
-    return NextResponse.json({ success: true, message: "Faculty added and email sent 🎉" }, { status: 201 });
+    await sgMail.send(msg);
+
+    return NextResponse.json({ success: true, message: "Faculty added and email sent ✅" }, { status: 201 });
   } catch (err: any) {
-    console.error("❌ API Error:", err);
+    console.error("❌ Add Faculty API Error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
