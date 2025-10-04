@@ -1,35 +1,66 @@
 import { NextResponse } from "next/server";
-import Faculty from "@/models/Faculty";
-import dbConnect from "@/lib/dbConnect";
-import { getGmailTransporter } from "@/lib/mailer";
+import clientPromise from "@/lib/mongodb";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
 
 export async function POST(req: Request) {
   try {
-    await dbConnect();
-    const { name, email, password } = await req.json();
+    const { fullName, email, username, facultyCode } = await req.json();
 
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    if (!fullName || !email || !username || !facultyCode) {
+      return NextResponse.json({ error: "Missing field" }, { status: 400 });
     }
 
-    // Save new faculty to DB
-    const faculty = new Faculty({ name, email, password });
-    await faculty.save();
+    // Connect with native driver
+    const client = await clientPromise;
+    const db = client.db("university");
+    const facultyCollection = db.collection("faculty");
 
-    // Send email with Gmail transporter
-    const transporter = await getGmailTransporter();
-    const info = await transporter.sendMail({
-      from: `"Admin" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Faculty Account Created",
-      text: `Hello ${name},\n\nYour faculty account has been created.\n\nEmail: ${email}\nPassword: ${password}\n\nPlease log in.`,
+    const existing = await facultyCollection.findOne({
+      $or: [{ username }, { facultyCode }],
     });
 
-    console.log("📩 Faculty email sent:", info.messageId);
+    if (existing) {
+      return NextResponse.json(
+        { error: "Username or Faculty Code already exists" },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ success: true, faculty });
-  } catch (error) {
-    console.error("❌ Error in add-faculty:", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    const plainPassword = crypto.randomBytes(6).toString("hex");
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+    const newFaculty = {
+      fullName,
+      email,
+      username,
+      facultyCode,
+      password: hashedPassword,
+      createdAt: new Date(),
+    };
+
+    await facultyCollection.insertOne(newFaculty);
+
+    // Nodemailer Gmail App Password (make sure EMAIL_USER + EMAIL_PASS are set)
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"University Admin" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Your Faculty Account Details",
+      text: `Hello ${fullName},\n\nUsername: ${username}\nPassword: ${plainPassword}`,
+    });
+
+    return NextResponse.json({ success: true, message: "Faculty added and email sent 🎉" }, { status: 201 });
+  } catch (err: any) {
+    console.error("❌ API Error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

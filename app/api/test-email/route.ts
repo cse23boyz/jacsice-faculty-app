@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
-import { getGmailTransporter } from "@/lib/mailer";
+import nodemailer from "nodemailer";
 
 export async function GET() {
   try {
-    const transporter = await getGmailTransporter();
-
-    const info = await transporter.sendMail({
-      from: `"Admin Test" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER, // send test mail to yourself
-      subject: "✅ Gmail Test Email",
-      text: "This is a test email sent from your Render deployment using Gmail + App Password.",
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER, // your Gmail
+        pass: process.env.EMAIL_PASS, // Gmail app password
+      },
     });
 
-    console.log("📩 Test email sent:", info.messageId);
+    // Send test mail
+    await transporter.sendMail({
+      from: `"Test App" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER, // send to yourself
+      subject: "✅ Test Email from Render",
+      text: "Hello! This is a test email from your Next.js app on Render.",
+    });
 
-    return NextResponse.json({ success: true, messageId: info.messageId });
-  } catch (error) {
-    console.error("❌ Test email failed:", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json({ success: true, message: "Test email sent ✅" });
+  } catch (err: any) {
+    console.error("❌ Email Error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
