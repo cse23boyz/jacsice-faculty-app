@@ -1,192 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs'
-import path from 'path'
+import { NextRequest, NextResponse } from "next/server";
+import { readCertifications, writeCertifications } from "./utils";
 
-// Database file path
-const DATA_DIR = path.join(process.cwd(), 'data')
-const CERTIFICATIONS_FILE = path.join(DATA_DIR, 'certifications.json')
+// GET all certifications
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const type = searchParams.get("type");
+    const search = searchParams.get("search");
+    const createdBy = searchParams.get("createdBy");
 
-// Ensure data directory exists
-const ensureDataDirectory = () => {
-  if (!existsSync(DATA_DIR)) {
-    mkdirSync(DATA_DIR, { recursive: true })
+    let certifications = readCertifications();
+
+    if (type) certifications = certifications.filter(c => c.type === type);
+    if (createdBy) certifications = certifications.filter(c => c.createdBy === createdBy);
+    if (search)
+      certifications = certifications.filter(c =>
+        c.title.toLowerCase().includes(search.toLowerCase()) ||
+        c.organization.toLowerCase().includes(search.toLowerCase())
+      );
+
+    certifications.sort(
+      (a, b) => new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+    );
+
+    return NextResponse.json({ success: true, data: certifications, count: certifications.length });
+  } catch (err) {
+    console.error("Error fetching certifications:", err);
+    return NextResponse.json({ success: false, error: "Failed to fetch certifications" }, { status: 500 });
   }
 }
 
-// Read certifications from JSON file
-const readCertifications = (): any[] => {
+// POST create new certification
+export async function POST(req: NextRequest) {
   try {
-    ensureDataDirectory()
-    if (existsSync(CERTIFICATIONS_FILE)) {
-      const data = readFileSync(CERTIFICATIONS_FILE, 'utf-8')
-      return JSON.parse(data)
-    }
-  } catch (error) {
-    console.error('Error reading certifications:', error)
-  }
-  return []
-}
+    const body = await req.json();
+    const { title, type, organization, date, duration, description, certificateFile, fileName, createdBy, isPinned = false } = body;
 
-// Write certifications to JSON file
-const writeCertifications = (certifications: any[]) => {
-  try {
-    ensureDataDirectory()
-    writeFileSync(CERTIFICATIONS_FILE, JSON.stringify(certifications, null, 2), 'utf-8')
-  } catch (error) {
-    console.error('Error writing certifications:', error)
-    throw error
-  }
-}
+    if (!title || !type || !organization || !date)
+      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
 
-// GET - Fetch all certifications
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type')
-    const search = searchParams.get('search')
-    const createdBy = searchParams.get('createdBy')
+    const validTypes = ["conference","fdp","journal","research","seminar","project","workshop","certification"];
+    if (!validTypes.includes(type))
+      return NextResponse.json({ success: false, error: `Invalid type. Must be one of ${validTypes.join(", ")}` }, { status: 400 });
 
-    let certifications = readCertifications()
+    const certifications = readCertifications();
+    if (certifications.find(c => c.title.toLowerCase() === title.toLowerCase() && c.organization.toLowerCase() === organization.toLowerCase()))
+      return NextResponse.json({ success: false, error: "Duplicate certification" }, { status: 409 });
 
-    // Filter by type
-    if (type) {
-      certifications = certifications.filter((cert: any) => cert.type === type)
-    }
-
-    // Filter by creator
-    if (createdBy) {
-      certifications = certifications.filter((cert: any) => cert.createdBy === createdBy)
-    }
-
-    // Search in title and organization
-    if (search) {
-      certifications = certifications.filter((cert: any) =>
-        cert.title.toLowerCase().includes(search.toLowerCase()) ||
-        cert.organization.toLowerCase().includes(search.toLowerCase())
-      )
-    }
-
-    // Sort by date created (newest first)
-    certifications.sort((a: any, b: any) => 
-      new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
-    )
-
-    return NextResponse.json({
-      success: true,
-      data: certifications,
-      count: certifications.length,
-      message: 'Certifications fetched successfully'
-    })
-  } catch (error) {
-    console.error('Error fetching certifications:', error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch certifications',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
-  }
-}
-
-// POST - Create new certification
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { 
-      title, 
-      type, 
-      organization, 
-      date, 
-      duration, 
-      description, 
-      certificateFile, 
-      fileName, 
-      createdBy,
-      isPinned = false 
-    } = body
-
-    // Validation
-    if (!title || !type || !organization || !date) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing required fields: title, type, organization, and date are required'
-        },
-        { status: 400 }
-      )
-    }
-
-    // Validate type
-    const validTypes = ['conference', 'fdp', 'journal', 'research', 'seminar', 'project', 'workshop', 'certification']
-    if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Invalid type. Must be one of: ${validTypes.join(', ')}`
-        },
-        { status: 400 }
-      )
-    }
-
-    const certifications = readCertifications()
-
-    // Check for duplicates (same title and organization)
-    const duplicate = certifications.find((cert: any) => 
-      cert.title.toLowerCase() === title.toLowerCase() && 
-      cert.organization.toLowerCase() === organization.toLowerCase()
-    )
-
-    if (duplicate) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'A certification with this title and organization already exists'
-        },
-        { status: 409 }
-      )
-    }
-
-    const newCertification = {
+    const newCert = {
       id: `cert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: title.trim(),
       type,
       organization: organization.trim(),
       date,
-      duration: duration?.trim() || '',
-      description: description?.trim() || '',
-      certificateFile: certificateFile || '',
-      fileName: fileName || '',
+      duration: duration?.trim() || "",
+      description: description?.trim() || "",
+      certificateFile: certificateFile || "",
+      fileName: fileName || "",
       isPinned: Boolean(isPinned),
       dateCreated: new Date().toISOString(),
-      createdBy: createdBy || 'staff',
+      createdBy: createdBy || "staff",
       lastUpdated: new Date().toISOString()
-    }
+    };
 
-    certifications.unshift(newCertification)
-    writeCertifications(certifications)
+    certifications.unshift(newCert);
+    writeCertifications(certifications);
 
-    console.log('New certification created:', newCertification.id)
-    console.log('Total certifications:', certifications.length)
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: newCertification,
-        message: 'Certification created successfully'
-      },
-      { status: 201 }
-    )
-  } catch (error) {
-    console.error('Error creating certification:', error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to create certification',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: true, data: newCert, message: "Certification created" }, { status: 201 });
+  } catch (err) {
+    console.error("Error creating certification:", err);
+    return NextResponse.json({ success: false, error: "Failed to create certification" }, { status: 500 });
   }
 }

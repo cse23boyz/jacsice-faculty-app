@@ -1,37 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
-import { verifyJwt } from "@/lib/jwt";
-import { toObjectId, toClientArray } from "@/lib/mongodb-utils";
+import { readCertifications, writeCertifications } from "@/app/api/certifications/utils";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const token = req.headers.get("Authorization")?.split(" ")[1];
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { id } = await context.params;
+    const allCerts = readCertifications();
+    const facultyCerts = allCerts.filter(c => c.createdBy === id);
 
-    const payload = verifyJwt(token);
-    if (!payload) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    const client = await clientPromise;
-    const db = client.db("university");
-
-    // Get certifications for the specific faculty member
-    const certifications = await db.collection("certifications")
-      .find({ facultyId: toObjectId(params.id) })
-      .sort({ date: -1 })
-      .toArray();
-
-    const certificationsData = toClientArray(certifications);
-
-    return NextResponse.json(certificationsData);
+    return NextResponse.json({ success: true, data: facultyCerts, count: facultyCerts.length });
   } catch (err) {
-    console.error("Faculty certifications fetch error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to fetch certifications" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const body = await req.json();
+    const certs = readCertifications();
+    const index = certs.findIndex(c => c.id === id);
+    if (index === -1) return NextResponse.json({ success: false, error: "Certification not found" }, { status: 404 });
+
+    certs[index] = { ...certs[index], ...body, lastUpdated: new Date().toISOString() };
+    writeCertifications(certs);
+
+    return NextResponse.json({ success: true, data: certs[index], message: "Certification updated" });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: "Failed to update certification" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const certs = readCertifications();
+    const index = certs.findIndex(c => c.id === id);
+    if (index === -1) return NextResponse.json({ success: false, error: "Certification not found" }, { status: 404 });
+
+    const deleted = certs.splice(index, 1)[0];
+    writeCertifications(certs);
+
+    return NextResponse.json({ success: true, data: deleted, message: "Certification deleted" });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: "Failed to delete certification" }, { status: 500 });
   }
 }

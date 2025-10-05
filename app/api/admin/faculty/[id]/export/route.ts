@@ -7,9 +7,11 @@ import * as XLSX from "xlsx";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // ✅ Fix: params is async
 ) {
   try {
+    const { id } = await context.params; // ✅ Fix: await the promise
+
     const token = req.headers.get("Authorization")?.split(" ")[1];
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -28,7 +30,7 @@ export async function GET(
 
     // Get faculty profile
     const faculty = await db.collection("faculty").findOne(
-      { _id: toObjectId(params.id) },
+      { _id: toObjectId(id) },
       { projection: { password: 0, resetToken: 0, resetTokenExpiry: 0 } }
     );
 
@@ -39,7 +41,7 @@ export async function GET(
     // Get certifications
     const certifications = await db
       .collection("certifications")
-      .find({ facultyId: toObjectId(params.id) })
+      .find({ facultyId: toObjectId(id) })
       .toArray();
 
     if (format === "pdf") {
@@ -49,7 +51,6 @@ export async function GET(
     } else {
       return NextResponse.json({ error: "Invalid format" }, { status: 400 });
     }
-
   } catch (err) {
     console.error("Export failed:", err);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
@@ -58,94 +59,98 @@ export async function GET(
 
 function generatePDF(faculty: any, certifications: any[]) {
   const doc = new jsPDF();
-  
+
   // Add content to PDF
   doc.setFontSize(20);
   doc.text(`Faculty Profile - ${faculty.fullName}`, 20, 20);
-  
+
   doc.setFontSize(12);
   doc.text(`Department: ${faculty.department}`, 20, 40);
   doc.text(`Designation: ${faculty.designation}`, 20, 50);
   doc.text(`Email: ${faculty.email}`, 20, 60);
-  
+
   if (faculty.specialization) {
     doc.text(`Specialization: ${faculty.specialization}`, 20, 70);
   }
-  
+
   // Add certifications
   let yPosition = 90;
   doc.text("Certifications:", 20, yPosition);
   yPosition += 10;
-  
+
   certifications.forEach((cert, index) => {
     if (yPosition > 270) {
       doc.addPage();
       yPosition = 20;
     }
-    
+
     doc.text(`${index + 1}. ${cert.title}`, 25, yPosition);
     doc.text(`   Organization: ${cert.organization}`, 25, yPosition + 6);
     doc.text(`   Date: ${new Date(cert.date).toLocaleDateString()}`, 25, yPosition + 12);
     yPosition += 20;
   });
 
-  const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-  
+  const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
+
   return new NextResponse(pdfBuffer, {
     headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="profile_${faculty.fullName}.pdf"`
-    }
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="profile_${faculty.fullName}.pdf"`,
+    },
   });
 }
 
 function generateExcel(faculty: any, certifications: any[]) {
   const workbook = XLSX.utils.book_new();
-  
+
   // Profile sheet
   const profileData = [
-    ['Faculty Profile Information'],
-    [''],
-    ['Field', 'Value'],
-    ['Full Name', faculty.fullName],
-    ['Department', faculty.department],
-    ['Designation', faculty.designation],
-    ['Email', faculty.email],
-    ['Phone', faculty.phone || ''],
-    ['Specialization', faculty.specialization || ''],
-    ['Experience', faculty.experience || ''],
-    ['Qualification', faculty.qualification || ''],
-    ['Date of Joining', faculty.dateOfJoining ? new Date(faculty.dateOfJoining).toLocaleDateString() : ''],
-    ['Bio', faculty.bio || ''],
-    [''],
-    ['Generated on', new Date().toLocaleDateString()]
+    ["Faculty Profile Information"],
+    [""],
+    ["Field", "Value"],
+    ["Full Name", faculty.fullName],
+    ["Department", faculty.department],
+    ["Designation", faculty.designation],
+    ["Email", faculty.email],
+    ["Phone", faculty.phone || ""],
+    ["Specialization", faculty.specialization || ""],
+    ["Experience", faculty.experience || ""],
+    ["Qualification", faculty.qualification || ""],
+    [
+      "Date of Joining",
+      faculty.dateOfJoining ? new Date(faculty.dateOfJoining).toLocaleDateString() : "",
+    ],
+    ["Bio", faculty.bio || ""],
+    [""],
+    ["Generated on", new Date().toLocaleDateString()],
   ];
-  
+
   const profileSheet = XLSX.utils.aoa_to_sheet(profileData);
-  XLSX.utils.book_append_sheet(workbook, profileSheet, 'Profile');
-  
+  XLSX.utils.book_append_sheet(workbook, profileSheet, "Profile");
+
   // Certifications sheet
   if (certifications.length > 0) {
-    const certsData = certifications.map(cert => ({
-      'Title': cert.title,
-      'Type': cert.type.charAt(0).toUpperCase() + cert.type.slice(1),
-      'Organization': cert.organization,
-      'Date': new Date(cert.date).toLocaleDateString(),
-      'Duration': cert.duration || '',
-      'Description': cert.description || '',
-      'Pinned': cert.isPinned ? 'Yes' : 'No'
+    const certsData = certifications.map((cert) => ({
+      Title: cert.title,
+      Type: cert.type.charAt(0).toUpperCase() + cert.type.slice(1),
+      Organization: cert.organization,
+      Date: new Date(cert.date).toLocaleDateString(),
+      Duration: cert.duration || "",
+      Description: cert.description || "",
+      Pinned: cert.isPinned ? "Yes" : "No",
     }));
-    
+
     const certsSheet = XLSX.utils.json_to_sheet(certsData);
-    XLSX.utils.book_append_sheet(workbook, certsSheet, 'Certifications');
+    XLSX.utils.book_append_sheet(workbook, certsSheet, "Certifications");
   }
-  
-  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-  
+
+  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+
   return new NextResponse(excelBuffer, {
     headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="profile_${faculty.fullName}.xlsx"`
-    }
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="profile_${faculty.fullName}.xlsx"`,
+    },
   });
 }
