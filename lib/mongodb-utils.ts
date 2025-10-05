@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 
+// Convert string to ObjectId safely
 export function toObjectId(id: string | ObjectId): ObjectId {
   if (id instanceof ObjectId) return id;
   if (typeof id === 'string' && ObjectId.isValid(id)) {
@@ -8,10 +9,12 @@ export function toObjectId(id: string | ObjectId): ObjectId {
   throw new Error(`Invalid ObjectId: ${id}`);
 }
 
+// Convert ObjectId to string
 export function toStringId(id: ObjectId | string): string {
   return id.toString();
 }
 
+// Convert MongoDB document to client-safe object
 export function toClientObject<T extends { _id: ObjectId }>(doc: T): Omit<T, '_id'> & { _id: string; id: string } {
   const { _id, ...rest } = doc;
   return {
@@ -21,6 +24,7 @@ export function toClientObject<T extends { _id: ObjectId }>(doc: T): Omit<T, '_i
   } as any;
 }
 
+// Convert array of MongoDB documents
 export function toClientArray<T extends { _id: ObjectId }>(docs: T[]): Array<Omit<T, '_id'> & { _id: string; id: string }> {
   return docs.map(doc => toClientObject(doc));
 }
