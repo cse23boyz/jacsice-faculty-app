@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readCertifications, writeCertifications } from '../route'
+import { readCertifications, writeCertifications } from '../utils'
 
 export async function DELETE(
   request: NextRequest,
