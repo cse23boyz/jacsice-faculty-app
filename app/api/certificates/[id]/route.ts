@@ -1,39 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { readCertifications, writeCertifications } from '../utils'
+import { NextRequest, NextResponse } from "next/server";
+import { readCertifications, writeCertifications } from "../utils"; // import from shared utils
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> } // <-- note the Promise
 ) {
-  try {
-    const certifications = readCertifications()
-    const certificationIndex = certifications.findIndex((c: any) => c.id === params.id)
+  const { id } = await context.params; // must await
 
-    if (certificationIndex === -1) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Certification not found'
-        },
-        { status: 404 }
-      )
+  try {
+    const certifications = readCertifications();
+    const index = certifications.findIndex(c => c.id === id);
+
+    if (index === -1) {
+      return NextResponse.json({ success: false, error: "Certification not found" }, { status: 404 });
     }
 
-    certifications.splice(certificationIndex, 1)
-    writeCertifications(certifications)
+    const deletedCert = certifications.splice(index, 1)[0];
+    writeCertifications(certifications);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Certification deleted successfully'
-    })
-  } catch (error) {
-    console.error('Error deleting certification:', error)
+    return NextResponse.json({ success: true, data: deletedCert, message: "Certification deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting certification:", err);
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to delete certification'
-      },
+      { success: false, error: "Failed to delete certification", details: err instanceof Error ? err.message : "Unknown" },
       { status: 500 }
-    )
+    );
   }
 }
