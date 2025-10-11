@@ -6,9 +6,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
   },
-  experimental: {
     serverComponentsExternalPackages: [],
-  },
+
 }
 
 module.exports = nextConfig
