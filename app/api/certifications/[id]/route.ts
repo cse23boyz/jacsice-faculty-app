@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readCertifications, writeCertifications } from "../utils";
 
-// GET – Get single certification by ID
+// ✅ GET – Get single certification by ID
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
+  const { id } = context.params;
   try {
     const certifications = readCertifications();
-    const certification = certifications.find(
-      (cert: any) => cert.id === params.id
-    );
+    const certification = certifications.find((cert: any) => cert.id === id);
 
     if (!certification) {
       return NextResponse.json(
@@ -37,11 +36,12 @@ export async function GET(
   }
 }
 
-// PUT – Update certification
+// ✅ PUT – Update certification
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
+  const { id } = context.params;
   try {
     const body = await request.json();
     const {
@@ -57,7 +57,7 @@ export async function PUT(
     } = body;
 
     const certifications = readCertifications();
-    const index = certifications.findIndex((cert: any) => cert.id === params.id);
+    const index = certifications.findIndex((cert: any) => cert.id === id);
 
     if (index === -1) {
       return NextResponse.json(
@@ -112,14 +112,15 @@ export async function PUT(
   }
 }
 
-// DELETE – Remove certification
+// ✅ DELETE – Remove certification
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
+  const { id } = context.params;
   try {
     const certifications = readCertifications();
-    const index = certifications.findIndex((cert: any) => cert.id === params.id);
+    const index = certifications.findIndex((cert: any) => cert.id === id);
 
     if (index === -1) {
       return NextResponse.json(
